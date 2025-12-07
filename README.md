@@ -70,6 +70,44 @@ The system uses a precise grid system to map pieces to chess squares:
    - It doesn't trust single frames - it looks at the last 25 frames to be sure about piece positions
    - When it's 90% confident about a board state, it "locks it in"
 
+   ### 🔄 Sliding Window Consensus (Simple Explanation)
+   Imagine you're watching a chess game with 25 friends. Each friend writes down what they think the board looks like at every moment. The system:
+
+   1. **Collects Opinions**: Gathers the last 25 views of the board
+   2. **Takes a Vote**: Counts how many friends see the same board state
+   3. **Requires Consensus**: Only accepts a board state if 23/25 friends (90%) agree
+   4. **Ignores Noise**: Temporary errors (like a hand blocking a piece) get voted out
+
+   This ensures the system doesn't get tricked by brief mistakes or flickering detections.
+
+   ### 🧠 Technical Implementation
+   ```python
+   # 1. Maintain buffer of last 25 board states
+   state_buffer = deque(maxlen=25)
+
+   # 2. Add current state to buffer
+   current_state = detect_board()
+   state_buffer.append(current_state)
+
+   # 3. Find most common state in buffer
+   consensus_state, count = Counter(state_buffer).most_common(1)[0]
+
+   # 4. Check if consensus meets threshold
+   if count >= 23:  # 90% of 25
+       # State is confirmed!
+       register_move(consensus_state)
+   ```
+
+   ### 🌟 Why This Works
+   | Situation | Traditional Approach | Sliding Window |
+   |-----------|----------------------|----------------|
+   | **Hand blocks piece** | False move detected | Ignored (vote fails) |
+   | **Piece flicker** | Multiple false moves | Single accurate move |
+   | **Lighting change** | Board reset | Gradual adaptation |
+   | **Fast move** | Missed move | Captured after consensus |
+
+   This approach makes the move detection robust against real-world video imperfections while maintaining accuracy.
+
 4. **Validating Moves**
    - When pieces move between locked states, the system checks if it's a legal chess move
    - It uses chess rules to handle special cases like castling (O-O) and pawn captures (exd5)
@@ -99,7 +137,7 @@ This process allows the system to handle real-world challenges like:
 - **Perspective Transform**: Converts angled view to top-down perspective
 - **Rotation Handling**: Detects board orientation (0°, 90°, 180°, 270°)
 
-### 2. Move Detection (`MoveDetectorV4`)
+### 2. Move Detection (`MoveDetector`)
 - **Voting Stability System**: Uses sliding window consensus
 - **Buffer Size**: 25 frames (configurable)
 - **Confidence Threshold**: 90% agreement required
